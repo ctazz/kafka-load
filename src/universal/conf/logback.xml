@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<configuration>
+	<appender name="LOG_FILE"
+		class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file>${log.dir}/application.log</file>
+		<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+			<!-- rollover hourly -->
+			<fileNamePattern>${log.dir}/application-%d{yyyy-MM-dd-HH}.log</fileNamePattern>
+		</rollingPolicy>
+		<append>true</append>
+		<encoder>
+			<pattern>%d %-5level ${HOSTNAME} %logger{35} %msg %n</pattern>
+		</encoder>
+	</appender>
+	<appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+		<encoder>
+			<pattern>%d %-5level ${HOSTNAME} %logger{35} %msg %n</pattern>
+		</encoder>
+	</appender>
+	<root level="INFO">
+		<appender-ref ref="LOG_FILE" />
+		<appender-ref ref="STDOUT" />
+	</root>
+</configuration>
