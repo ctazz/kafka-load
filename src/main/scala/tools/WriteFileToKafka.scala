@@ -52,8 +52,9 @@ object WriteFileToKafka extends App {
     window ! num
   }
 
+  val numRecordsToWrite = 2000
   val numWriters = 5
-  val restBetweenWrites = 1
+  val restBetweenWrites = 100
   val ec = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(numWriters))
 
 
@@ -65,7 +66,7 @@ object WriteFileToKafka extends App {
 
     override def run(): Unit = {
       println(s"inside run")
-      while(count.get() <= 20) {
+      while(count.get() <= numRecordsToWrite) {
         producer.send(new ProducerRecord(topicName, messagesAsText), new Callback {
           override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
             if (exception != null)

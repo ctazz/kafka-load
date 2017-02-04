@@ -28,7 +28,7 @@ libraryDependencies ++= Seq(
   , "org.apache.kafka" % "kafka-clients" % "0.8.2.1"
   , "com.fasterxml.jackson.core" % "jackson-databind" % "2.4.4"
   , "com.fasterxml.jackson.datatype" % "jackson-datatype-joda" % "2.4.4"
-  , "com.fasterxml.jackson.module" % "jackson-module-scala_2.10" % "2.4.4"  
+  , "com.fasterxml.jackson.module" % "jackson-module-scala_2.10" % "2.4.4"
   , "com.typesafe.akka" % "akka-actor_2.10" % "2.3.8"
   , "com.typesafe" % "config" % "1.2.0"
 )
@@ -36,7 +36,7 @@ libraryDependencies ++= Seq(
 
 
 libraryDependencies ++= Seq(
-  "junit" % "junit" % "4.12" % Test,	
+  "junit" % "junit" % "4.12" % Test,
   "org.specs2" %% "specs2" % "2.4.16" % Test,
   "com.typesafe.akka" %% "akka-testkit" % "2.3.9" % Test
 )
@@ -58,7 +58,7 @@ addArtifact(artifact in (Universal, packageZip), packageZip in Universal)
 
 publish <<= (publish) dependsOn (packageBin in Universal)
 
-Keys.mainClass in (Compile) := Some("tools.ConsumerExperiment")
+Keys.mainClass in (Compile) := Some("tools.Driver")
 
 publishMavenStyle := true
 

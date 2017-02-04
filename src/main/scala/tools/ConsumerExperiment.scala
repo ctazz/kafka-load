@@ -4,16 +4,22 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, TimeUnit}
 
 import akka.actor.{ActorSystem, Props}
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.Config
 import consumer.KafkaConsumer
 import kafka.consumer.{ConsumerConnector, ConsumerIterator, KafkaStream}
 import kafka.message.MessageAndMetadata
-import kafka.serializer.StringDecoder
+import kafka.serializer.{Decoder, StringDecoder}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-object ConsumerExperiment extends App {
+trait ConsumerExperiment[K,V]  {
+
+  val config: Config
+  val keyDecoder: Decoder[K]
+  val valueDecoder: Decoder[V]
+
+  println(s"config is $config")
 
   val numReceived = new AtomicInteger(0)
 
@@ -21,15 +27,15 @@ object ConsumerExperiment extends App {
     //TODO  Use a different executionContext here
     import scala.concurrent.ExecutionContext.Implicits.global
 
-    def consumerProcessForAPartition(topic: String, identifier: Int, kafkaStream: KafkaStream[String, String]): Runnable = new Runnable {
+    def consumerProcessForAPartition[K,V](topic: String, identifier: Int, kafkaStream: KafkaStream[K, V]): Runnable = new Runnable {
 
       println(s"creating runnable for topic $topic. Identifier is $identifier")
-      val consumerIterator: ConsumerIterator[String, String] = kafkaStream.iterator
+      val consumerIterator: ConsumerIterator[K, V] = kafkaStream.iterator
 
       def run: Unit = {
 
         while(true) {
-          val f = KafkaConsumer.nextWorkBatch(consumerIterator, 100, 600).map { x: (Option[Throwable], Seq[MessageAndMetadata[String, String]]) =>
+          val f = KafkaConsumer.nextWorkBatch(consumerIterator, 100, 600).map { x: (Option[Throwable], Seq[MessageAndMetadata[K, V]]) =>
             //println(s"In topic $topic identifier $identifier numReceived is ${x._2.size}")
 
             numReceived.getAndAdd(x._2.size)
@@ -65,32 +71,16 @@ object ConsumerExperiment extends App {
     window ! num
   }
 
-  val topicsAndThreadNums: Map[String, Int] = Map("bpm_in" -> 2)
 
+  val topicsAndThreadNums: Map[String, Int] =  Support.toSimpleMap( config.getConfig("topicsAndThreadNums")).map{  case (topic, threads) => (topic, threads.toInt) }
+  //Map("bpm_in" -> 2)
+  println(topicsAndThreadNums)
 
-  val config = ConfigFactory.parseString(
-    """
-        zookeeper.connect = "127.0.0.1:2181"
-        group.id = "theGroupIdw"
-        client.id = testclientXXYYYwx
-        zookeeper.session.timeout.ms = 400
-        zookeeper.sync.time.ms = 200
-        auto.commit.enable = true
-        auto.commit.interval.ms = 1000
-        consumer.timeout.ms = 2000
-        rebalance.backoff.ms = 10000
-        zookeeper.session.timeout.ms = 10000
-    """
-  )
-
-  val kafkaConsumerProperties = tools.Support.toProperties(config)
+  val kafkaConsumerProperties = tools.Support.toProperties(config.getConfig("properties"))
   println("kafkaConsumerProperties: " + kafkaConsumerProperties)
 
   val consumerConnector: ConsumerConnector = KafkaConsumer.consumerConnector(kafkaConsumerProperties)
-  val streamsMap: Map[String, List[KafkaStream[String, String]]] = KafkaConsumer.kafkaStreams(topicsAndThreadNums, consumerConnector, new StringDecoder(), new StringDecoder())
-
-
-
+  val streamsMap: Map[String, List[KafkaStream[K, V]]] = KafkaConsumer.kafkaStreams[K,V](topicsAndThreadNums, consumerConnector, keyDecoder, valueDecoder)
 
   val runnables: Seq[Runnable] = streamsMap.toSeq.flatMap{ case( topicName, streams  )  =>
     (0 to streams.size).zip(streams).map{ case (identifier, theStream) =>
