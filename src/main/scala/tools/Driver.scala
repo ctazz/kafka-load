@@ -1,6 +1,6 @@
 package tools
 
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{Config, ConfigFactory}
 import kafka.serializer.{StringDecoder, Decoder}
 
 import scala.util.Try
@@ -12,17 +12,20 @@ object Driver extends App {
   val initialConfig = ConfigFactory.load
   println(s"initialConfig is $initialConfig")
 
-  Try(initialConfig.getConfig("consumer")).toOption.map{c =>
-    println(s"c is $c")
+  if(initialConfig.getBoolean("read")) {
     new ConsumerExperiment[String, String] {
-      override lazy val config = c
+      override lazy val config = initialConfig.getConfig("consumer")
       override val keyDecoder: Decoder[String] = new StringDecoder()
       override val valueDecoder: Decoder[String] = new StringDecoder()
     }
-
-  }.getOrElse{
-    println("ain't got no consumer config")
   }
+  else {
+    new WriteFileToKafka {
+      override lazy val config: Config = initialConfig.getConfig("producer")
+    }
+    println("no read, folks. Want to write")
+  }
+
 
 
 

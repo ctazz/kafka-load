@@ -3,6 +3,3 @@
 -Dconfig.file=conf/application.conf
 -Dlogback.configurationFile=conf/logback.xml
 -Dlog.dir=logs
--Dcom.sun.management.jmxremote.port=1234
--Dcom.sun.management.jmxremote.authenticate=false 
--Dcom.sun.management.jmxremote.ssl=false

@@ -4,34 +4,24 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, TimeUnit}
 
 import akka.actor.{ActorSystem, Props}
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.kafka.clients.producer._
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 
-object WriteFileToKafka extends App {
+trait WriteFileToKafka  {
 
   import Support._
 
-  //You'll need to supply arguments for the testDadtaFile, the topicName and the config's bootstrap.servers
-  //The bootstrap servers need to be in the form "host1:port,host2:port"
-  val testDataFile = args(0)
+  val config: Config
 
-  val topicName = args(1)
+  val producer = kafkaProducer[String, String](toProperties(config.getConfig("properties")))
 
-  println(s"bootstrap.servers are ${args(2)}")
-
-  val config = ConfigFactory.parseString(s"""
-  bootstrap.servers = "${args(2)}"
-  client.id = testclient
-  key.serializer=org.apache.kafka.common.serialization.StringSerializer
-  value.serializer=org.apache.kafka.common.serialization.StringSerializer
-  retry.backoff.ms = 10
-""")
-
-  val producer = kafkaProducer[String, String](toProperties(config))
-
+  val topicName: String = config.getString("topicName")
+  val numRecordsToWrite = config.getInt("numRecordsToWrite") //2000
+  val numWriters = config.getInt("numWriters")
+  val restBetweenWrites = config.getInt("restBetweenWrites")
 
   val messagesAsText = """
 [    {        "ingest": {            "time": "2017-01-09T22:36:26.8210000Z",            "clientIp": "13.66.226.137",            "quality": 24736        },        "name": "Microsoft.ApplicationInsights.Dev.aif5b364b0890bb4793940f4e05f5ccdb75.Event",        "time": "2017-01-09T22:36:18.2050438Z",        "iKey": "AIF-5b364b08-90bb-4793-940f-4e05f5ccdb75",        "tags": {            "ai.internal.sdkVersion": "dotnet: 2.1.0.26048"        },        "data": {            "baseType": "EventData",            "baseData": {                "ver": 2,                "name": "LoadPlan",                "properties": {                    "MsitPartB": "true",                    "DeveloperMode": "true",                    "deliveryOrderId": "8014261842",                    "AppAction": "LoadPlan.Received.[081466849].[RBTW]",                    "countryCode": "USA",                    "applicationName": "DTVIntegration",                    "EventOccurrenceTime": "2017-01-09T22:36:18.3631594Z",                    "EventType": "BusinessProcessEvent",                    "UserRoleName": "MININT-EGTRAM3.fareast.corp.microsoft.com",                    "processName": "Process204",                    "XCV": "2b14133e-76d1-41f6-bed6-2e89c8345532",                    "CorrelationId": "2b14133e-76d1-41f6-bed6-2e89c8345532",                    "PartnerId": "RBTW",                    "btsMessageType": "http://schemas.microsoft.com/BizTalk/EDI/X12/2006#X12_00401_204",                    "environment": "UAT",                    "controlNumber": "1388726",                    "stageName": "ReceivedEDI204Message",                    "TemplateType": "Internal.BusinessProcessEvent",                    "taskId": "204",                    "transactionId": "6E0FE8A7-EF0B-40F5-AF36-2BD6742B0BAC",                    "plantCode": "4260",                    "eventSource": "MS.SupplyChain.SupplyChainEvent",                    "BusinessProcessName": "LoadPlan",                    "parentDONumber": "212942814",                    "ComponentType": "BackgroundProcess",                    "TestBenchProcess": "1",                    "SenderID": "081466849",                    "hub": "DEV Extranet",                    "UniqueTestKey": "P139-T15312",                    "creationDateTime": "2016-11-03 18:29:10.483",                    "entityId": "212942814",                    "vendorNumber": "RBTW",                    "loadPlanId": "9807A228-2C85-4775-9A0E-2CE06758BE90"                }            }        },        "EventProcessedUtcTime": "2017-01-09T22:36:27.3453679Z",        "PartitionId": 0,        "EventEnqueuedUtcTime": "2017-01-09T22:36:27.0970000Z"    },
@@ -52,9 +42,7 @@ object WriteFileToKafka extends App {
     window ! num
   }
 
-  val numRecordsToWrite = 2000
-  val numWriters = 5
-  val restBetweenWrites = 100
+
   val ec = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(numWriters))
 
 
