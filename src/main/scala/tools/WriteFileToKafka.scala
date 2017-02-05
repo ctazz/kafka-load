@@ -34,7 +34,7 @@ trait WriteFileToKafka  {
   val system = ActorSystem("actor_system_for_producing")
   import scala.concurrent.ExecutionContext.Implicits.global
   val window = system.actorOf(Props(
-      new Window(new FiniteDuration(1, TimeUnit.SECONDS), tup => println("Write: " + Window.defaultDump(tup)) )
+      new Window(new FiniteDuration(config.getLong("window.duration.in.millis"), TimeUnit.MILLISECONDS), tup => println("Write: " + Window.defaultDump(tup)) )
 
   ))
 

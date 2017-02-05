@@ -62,15 +62,27 @@ class Window(windowSize: FiniteDuration, sendOutput: Tuple2[ProcessStatsWithCurr
       sendOutput(withCurrTime(System.currentTimeMillis, proccesStats, windowStats))
 
     case Tick =>
-      //println(s"window actor in collecting::tick ")
+
       val currTime = System.currentTimeMillis()
+/*      println(s"window actor in collecting::tick Window duration was ${currTime - windowStats.startTime}." +
+        s" currTime is $currTime, windowStats startTime is ${windowStats.startTime}, windowSize (in millis) is ${windowSize.toMillis}")*/
 
-      sendOutput(withCurrTime(System.currentTimeMillis, proccesStats, windowStats))
+      //Looks like we can sometimes get a tick from a Cancellable that somehow hasn't been cancelled,
+      //even though we think we cancel it in all the right places.
+      //So let's not send output and schedule a new tick unless  we know we haven't been awakened by
+      //a tick sent from a rogue Cancellable.
+      if(currTime - windowStats.startTime >= windowSize.toMillis) {
+
+        sendOutput(withCurrTime(currTime, proccesStats, windowStats))
 
 
-      context.become(collecting(proccesStats, WindowStats(System.currentTimeMillis, 0)))
+        context.become(collecting(proccesStats, WindowStats(System.currentTimeMillis, 0)))
 
-      scheduleNextTicK(true)
+        scheduleNextTicK(true)
+
+      }
+
+
 
 
     case sizeOfIncrement: Long =>
@@ -78,7 +90,8 @@ class Window(windowSize: FiniteDuration, sendOutput: Tuple2[ProcessStatsWithCurr
       val currTime = System.currentTimeMillis
 
       if(currTime - windowStats.startTime >= windowSize.toMillis) {
-        //println(s"window actor in collecting::Long about to send output. Window duration was ${currTime - windowStats.startTime}")
+/*        println(s"window actor in collecting::Long about to send output. Window duration was ${currTime - windowStats.startTime}." +
+        s" currTime is $currTime, windowStats startTime is ${windowStats.startTime}, windowSize (in millis) is ${windowSize.toMillis}")*/
 
 
         val latestProcessStats = proccesStats.update(sizeOfIncrement)
@@ -125,9 +138,10 @@ class Window(windowSize: FiniteDuration, sendOutput: Tuple2[ProcessStatsWithCurr
   var nextScheduledTick: Option[Cancellable] = None
 
   def scheduleNextTicK(isRespondingToTick: Boolean = false) = {
-    //If we're responding to a tick then our nextScheduledTick must have already expired.
-    //Probably wouldn't hurt us if we cancelled an expired scheduler, but I'm not sure, so I don't tdo it
-    if(!isRespondingToTick) nextScheduledTick.map(_.cancel)
+    nextScheduledTick.map{tickScheduler =>
+      tickScheduler.cancel()
+      //println("cancelled obsolete tick")
+    }
 
     nextScheduledTick = Some(
       context.system.scheduler.scheduleOnce(windowSize, self, Tick)

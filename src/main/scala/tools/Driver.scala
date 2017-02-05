@@ -23,7 +23,6 @@ object Driver extends App {
     new WriteFileToKafka {
       override lazy val config: Config = initialConfig.getConfig("producer")
     }
-    println("no read, folks. Want to write")
   }
 
 
