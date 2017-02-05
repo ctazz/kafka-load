@@ -9,6 +9,7 @@ import consumer.KafkaConsumer
 import kafka.consumer.{ConsumerConnector, ConsumerIterator, KafkaStream}
 import kafka.message.MessageAndMetadata
 import kafka.serializer.{Decoder, StringDecoder}
+import tools.Window.{ProcessStatsWithCurrTime, WindowStatsWithEndTime}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -18,6 +19,8 @@ trait ConsumerExperiment[K,V]  {
   val config: Config
   val keyDecoder: Decoder[K]
   val valueDecoder: Decoder[V]
+
+  def sendOutput(data: Tuple2[ProcessStatsWithCurrTime, WindowStatsWithEndTime]): Unit
 
   println(s"config is $config")
 
@@ -35,7 +38,9 @@ trait ConsumerExperiment[K,V]  {
       def run: Unit = {
 
         while(true) {
-          val f = KafkaConsumer.nextWorkBatch(consumerIterator, 100, 600).map { x: (Option[Throwable], Seq[MessageAndMetadata[K, V]]) =>
+          val f = KafkaConsumer.nextWorkBatch(consumerIterator,
+            config.getInt("work.chunk.size"),
+            config.getLong("time.toWait.for.pulls.when.succceeding.in.millis")).map { x: (Option[Throwable], Seq[MessageAndMetadata[K, V]]) =>
             //println(s"In topic $topic identifier $identifier numReceived is ${x._2.size}")
 
             numReceived.getAndAdd(x._2.size)
@@ -63,7 +68,7 @@ trait ConsumerExperiment[K,V]  {
   val system = ActorSystem("actor_system_for_consuming")
   import scala.concurrent.ExecutionContext.Implicits.global
   val window = system.actorOf(Props(
-    new Window(new FiniteDuration(2, TimeUnit.SECONDS), tup => println("Read: " + Window.defaultDump(tup)) )
+    new Window(new FiniteDuration(config.getLong("window.duration.in.millis"), TimeUnit.MILLISECONDS), sendOutput )
 
   ))
 
@@ -73,7 +78,6 @@ trait ConsumerExperiment[K,V]  {
 
 
   val topicsAndThreadNums: Map[String, Int] =  Support.toSimpleMap( config.getConfig("topicsAndThreadNums")).map{  case (topic, threads) => (topic, threads.toInt) }
-  //Map("bpm_in" -> 2)
   println(topicsAndThreadNums)
 
   val kafkaConsumerProperties = tools.Support.toProperties(config.getConfig("properties"))
@@ -104,7 +108,7 @@ trait ConsumerExperiment[K,V]  {
     println(s"numReceived is ${numReceived.get}")
   }
 
-  Thread.sleep(100000)
+  Thread.sleep(config.getLong("max.runtime"))
 
   def await[T](futT: Future[T], timeout: FiniteDuration = new FiniteDuration(100, TimeUnit.SECONDS)) = Await.result(futT, timeout)
 

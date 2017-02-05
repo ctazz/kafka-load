@@ -78,7 +78,7 @@ class Window(windowSize: FiniteDuration, sendOutput: Tuple2[ProcessStatsWithCurr
 
         context.become(collecting(proccesStats, WindowStats(System.currentTimeMillis, 0)))
 
-        scheduleNextTicK(true)
+        scheduleNextTicK
 
       }
 
@@ -102,7 +102,7 @@ class Window(windowSize: FiniteDuration, sendOutput: Tuple2[ProcessStatsWithCurr
         )
 
 
-        scheduleNextTicK()
+        scheduleNextTicK
 
       }
       else
@@ -126,7 +126,7 @@ class Window(windowSize: FiniteDuration, sendOutput: Tuple2[ProcessStatsWithCurr
 
       context.become( collecting(ProcessStats(currTime, sizeOfIncrement   ), WindowStats(currTime, sizeOfIncrement))  )
 
-      scheduleNextTicK()
+      scheduleNextTicK
 
   }
 
@@ -137,7 +137,7 @@ class Window(windowSize: FiniteDuration, sendOutput: Tuple2[ProcessStatsWithCurr
 
   var nextScheduledTick: Option[Cancellable] = None
 
-  def scheduleNextTicK(isRespondingToTick: Boolean = false) = {
+  def scheduleNextTicK = {
     nextScheduledTick.map{tickScheduler =>
       tickScheduler.cancel()
       //println("cancelled obsolete tick")

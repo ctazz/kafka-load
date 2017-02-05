@@ -6,6 +6,7 @@ import java.util.concurrent.{Executors, TimeUnit}
 import akka.actor.{ActorSystem, Props}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.kafka.clients.producer._
+import tools.Window.{Report, WindowStatsWithEndTime, ProcessStatsWithCurrTime}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
@@ -15,6 +16,7 @@ trait WriteFileToKafka  {
   import Support._
 
   val config: Config
+  def sendOutput(data: Tuple2[ProcessStatsWithCurrTime, WindowStatsWithEndTime]): Unit
 
   val producer = kafkaProducer[String, String](toProperties(config.getConfig("properties")))
 
@@ -34,7 +36,7 @@ trait WriteFileToKafka  {
   val system = ActorSystem("actor_system_for_producing")
   import scala.concurrent.ExecutionContext.Implicits.global
   val window = system.actorOf(Props(
-      new Window(new FiniteDuration(config.getLong("window.duration.in.millis"), TimeUnit.MILLISECONDS), tup => println("Write: " + Window.defaultDump(tup)) )
+      new Window(new FiniteDuration(config.getLong("window.duration.in.millis"), TimeUnit.MILLISECONDS), sendOutput )
 
   ))
 
@@ -44,7 +46,6 @@ trait WriteFileToKafka  {
 
 
   val ec = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(numWriters))
-
 
   def runnable = new Runnable {
 
@@ -68,15 +69,7 @@ trait WriteFileToKafka  {
           }
         })
         val currCount = count.getAndIncrement
-        //if(currCount % 100 == 0){
-
-        //}
-        //if(count.get % 10 == 0) {
-          //println(s"sent $currCount messages in ${System.currentTimeMillis() - startTime} milliseconds ${Thread.currentThread().getName}")
-          //Thread.sleep(5)
-        //}
         Thread.sleep(restBetweenWrites)
-        //Thread.sleep(1000)
       }
           Thread.sleep(10)
           println(s"num sent is $numWritten in ${System.currentTimeMillis() - startTime}  ${Thread.currentThread().getName}")
@@ -96,45 +89,13 @@ trait WriteFileToKafka  {
   }
 
   (1 to numWriters).foreach((_ => ec.execute(runnable)))
-  //ec.execute(runnable)
-  //ec.execute(runnable)
-  //ec.execute(runnable)
-  //ec.execute(runnable)
 
 
-  //new Thread(runnable).start()
-  //new Thread(runnable).start()
+  sys.addShutdownHook{
+    window ! Report
+  }
 
-  Thread.sleep(20000)
-/*  while(count.get() <= 2000) {
-    producer.send(new ProducerRecord(topicName, messagesAsText), new Callback {
-      override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
-        if (exception != null)
-          println(s"error writing data $messagesAsText")
-        else
-          numWritten.getAndIncrement()
-        //println(s"Kafka record written to topic/partition/offset ${metadata.topic}/${metadata.partition}/${metadata.offset}, data is $messagesAsText")
-      }
-    })
-    val currCount = count.getAndIncrement
-    //if(currCount % 100 == 0){
-    println(s"sent $currCount messages in ${System.currentTimeMillis() - startTime} milliseconds ")
-    //}
-    if(count.get % 10 == 0)
-      Thread.sleep(1)
-  }*/
-
-/*  Thread.sleep(10)
-  println(s"num sent is $numWritten in ${System.currentTimeMillis() - startTime}")
-  Thread.sleep(10)
-  println(s"num sent is $numWritten in ${System.currentTimeMillis() - startTime}")
-  Thread.sleep(100)
-  println(s"num sent is $numWritten in ${System.currentTimeMillis() - startTime}")
-  Thread.sleep(1000)
-  println(s"num sent is $numWritten in ${System.currentTimeMillis() - startTime}")
-  Thread.sleep(1000)
-  println(s"num sent is $numWritten in ${System.currentTimeMillis() - startTime}")*/
-
+  Thread.sleep(config.getLong("max.runtime"))
 
 
 }
