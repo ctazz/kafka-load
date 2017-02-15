@@ -18,3 +18,8 @@ gogo air
 host.name=172.19.131.166
 
 10.1.10.52
+
+export BOOTSTRAP_SERVERS=10.0.0.247:9093,10.0.0.247:9094
+
+
+
