@@ -67,23 +67,34 @@ object Driver extends App {
             var counter: Long = 0
             val eventsAsSeveralMessages = Support.readText(config.getString("records.file"))
             val arrayOfMessages = eventsAsSeveralMessages.split("\n").filterNot(_.trim == "")
+            var currCorrelationId: String = _
+
 
             override def next(): ProducerRecord[String, String] = {
               val cnt = counter
               //println(s"counter is ${cnt} and maybePartition is $maybePartitionInWhichToWrite")
-              val nextMessage = arrayOfMessages((cnt % arrayOfMessages.size).toInt)
+              val nextMessageTemplate = arrayOfMessages((cnt % arrayOfMessages.size).toInt)
               //println(s"nextMessage is $nextMessage")
+              if(cnt % arrayOfMessages.size.toInt == 0){
+                currCorrelationId = nextUUID()
+              }
+              val message = nextMessageTemplate.replace("2b14133e-76d1-41f6-bed6-2e89c8345532", currCorrelationId)
 
               val returnMe = new ProducerRecord[String, String](topicName,
                 maybeIntToJavaInteger(maybePartitionInWhichToWrite),
                 null,
-                nextMessage
+                message
               )
               counter = counter + 1
               returnMe
             }
 
             override def hasNext: Boolean = true
+
+
+            def nextUUID(): String = {
+              java.util.UUID.randomUUID().toString
+            }
           }
 
         }
